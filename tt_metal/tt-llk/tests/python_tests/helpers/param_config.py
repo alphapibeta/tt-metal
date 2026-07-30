@@ -489,6 +489,7 @@ def is_invalid_quasar_sfpu_format_combination(
         not in_fmt.is_32_bit()
         and not out_fmt.is_32_bit()
         and dest_acc == DestAccumulation.Yes
+        and unpack_to_dest == True
     ):
         return True
 
