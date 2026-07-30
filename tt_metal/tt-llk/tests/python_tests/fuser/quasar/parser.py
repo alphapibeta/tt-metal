@@ -35,11 +35,13 @@ from .fpu.datacopy import DatacopyFpu
 from .fpu.eltwise import EltwiseFpu
 from .fpu.matmul import MatmulFpu
 from .fpu.reduce import ReduceFpu
+from .fpu.transpose_dest import TransposeDestFpu
 from .packer.packer import Packer
 from .sfpu.binary import BinarySfpu
 from .sfpu.unary import UnarySfpu
 from .unpacker.matmul import MatmulUnpacker
 from .unpacker.reduce import ReduceUnpacker
+from .unpacker.transpose_dest import TransposeDestUnpacker
 from .unpacker.unpack_a import UnpackerA
 from .unpacker.unpack_ab import UnpackerAB
 
@@ -137,6 +139,10 @@ UNPACKER_MAP = {
         lambda s: ReduceUnpacker(s.reduce_dim, s.reduce_pool),
         None,
     ),
+    "TransposeDestUnpacker": (
+        lambda s: TransposeDestUnpacker(),
+        None,
+    ),
 }
 
 FPU_MAP = {
@@ -173,6 +179,15 @@ FPU_MAP = {
             _forced_unpacker("ReduceUnpacker"),
         ],
     ),
+    "TransposeDest": (
+        lambda s: TransposeDestFpu(),
+        [
+            _no_reuse_dest,
+            _no_broadcast,
+            _no_transpose,
+            _forced_unpacker("TransposeDestUnpacker"),
+        ],
+    ),
 }
 
 _l1_acc_format = (
@@ -196,6 +211,7 @@ OUTPUT_DIMS = {
     "Datacopy": _src_a_dims,
     "Matmul": _matmul_dims,
     "Reduce": _src_a_dims,
+    "TransposeDest": _src_a_dims,
 }
 
 
@@ -275,3 +291,12 @@ class OperationSchema(OperationSchemaBase):
                     or m.unpack_transpose_within_face == Transpose.Yes
                 ):
                     raise ValueError("Quasar does not support transpose in unpack")
+
+        if (
+            self.math
+            and isinstance(self.math[0], FpuMathSchema)
+            and self.math[0].operation == "TransposeDest"
+        ):
+            raise ValueError(
+                "TransposeDest cannot be the first math operation: Dst must already contain data"
+            )
