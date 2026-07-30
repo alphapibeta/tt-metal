@@ -3,9 +3,12 @@
 
 #include "transpose_utils.hpp"
 
+#include <algorithm>
+
 #include <tt-logger/tt-logger.hpp>
 #include <tt-metalium/constants.hpp>
 #include <tt-metalium/host_api.hpp>
+#include <tt-metalium/work_split.hpp>
 
 namespace ttnn::operations::data_movement::transpose {
 
@@ -129,8 +132,7 @@ std::optional<ShardSpec> adjust_shard_spec_to_shape(
     return ret;
 }
 
-// Build a sharded spec over the full compute grid (used when no input shard_spec is available
-// to scale from, e.g. interleaved input + sharded output request).
+// #50684: size CoreRangeSet to populated shards (avoids L1 waste + misleading .grid.num_cores()).
 ShardSpec generate_transpose_shard_spec(
     const Tensor& input_tensor,
     const ttnn::Shape& padded_out_shape,
@@ -169,15 +171,57 @@ ShardSpec generate_transpose_shard_spec(
             tt::round_up(tt::div_up(tensor_width, static_cast<uint64_t>(grid_size.x)), tt::constants::TILE_WIDTH);
         shard_shape = {static_cast<uint32_t>(shard_height), static_cast<uint32_t>(shard_width)};
     }
-    log_debug(tt::LogOp, "Transpose: generated shard spec over full compute grid ({} cores)", num_cores);
-    // Prefer explicit hint, then input's orientation, else ROW_MAJOR.
+
+    // Resolve orientation (hint > input > ROW_MAJOR) before core-fill so row_wise matches interleaved_to_sharded.
     ShardOrientation orientation = ShardOrientation::ROW_MAJOR;
     if (orientation_hint.has_value()) {
         orientation = *orientation_hint;
     } else if (input_tensor.shard_spec().has_value()) {
         orientation = input_tensor.shard_spec()->orientation;
     }
-    return ShardSpec(all_cores, shard_shape, orientation);
+    const bool row_wise = (orientation == ShardOrientation::ROW_MAJOR);
+
+    // Populated-shard count → CoreRangeSet; BLOCK stays rectangular for downstream BLOCK factories.
+    CoreRangeSet used_cores;
+    if (memory_layout == TensorMemoryLayout::HEIGHT_SHARDED) {
+        uint32_t n_used = static_cast<uint32_t>(tt::div_up(tensor_height, static_cast<uint64_t>(shard_shape[0])));
+        n_used = std::min(std::max(n_used, 1u), num_cores);
+        used_cores = (n_used == num_cores)
+                         ? all_cores
+                         : tt::tt_metal::num_cores_to_corerangeset(n_used, compute_grid_size, row_wise);
+    } else if (memory_layout == TensorMemoryLayout::WIDTH_SHARDED) {
+        uint32_t n_used = static_cast<uint32_t>(tt::div_up(tensor_width, static_cast<uint64_t>(shard_shape[1])));
+        n_used = std::min(std::max(n_used, 1u), num_cores);
+        used_cores = (n_used == num_cores)
+                         ? all_cores
+                         : tt::tt_metal::num_cores_to_corerangeset(n_used, compute_grid_size, row_wise);
+    } else {
+        // BLOCK: swap logical→physical roles together with the clamp (mirrors reshape_view). COL_MAJOR maps
+        // n_h→phys_x / n_w→phys_y, so each must be clamped against its own physical grid axis on non-square grids.
+        uint32_t n_h = static_cast<uint32_t>(tt::div_up(tensor_height, static_cast<uint64_t>(shard_shape[0])));
+        uint32_t n_w = static_cast<uint32_t>(tt::div_up(tensor_width, static_cast<uint64_t>(shard_shape[1])));
+        uint32_t phys_x_extent = std::min(std::max(row_wise ? n_w : n_h, 1u), static_cast<uint32_t>(compute_grid_size.x));
+        uint32_t phys_y_extent = std::min(std::max(row_wise ? n_h : n_w, 1u), static_cast<uint32_t>(compute_grid_size.y));
+        used_cores = (phys_x_extent == static_cast<uint32_t>(compute_grid_size.x) &&
+                      phys_y_extent == static_cast<uint32_t>(compute_grid_size.y))
+                         ? all_cores
+                         : CoreRangeSet(CoreRange({0, 0}, {phys_x_extent - 1, phys_y_extent - 1}));
+    }
+    // Guard the physical-clamp invariant (surfaces any future BLOCK+COL_MAJOR / non-square regression).
+    const auto bbox = used_cores.bounding_box();
+    TT_ASSERT(
+        bbox.end_coord.x < static_cast<uint32_t>(compute_grid_size.x) &&
+            bbox.end_coord.y < static_cast<uint32_t>(compute_grid_size.y),
+        "Transpose: synthesized shard grid ({},{})→({},{}) escapes compute grid ({},{})",
+        bbox.start_coord.x, bbox.start_coord.y, bbox.end_coord.x, bbox.end_coord.y,
+        compute_grid_size.x, compute_grid_size.y);
+    log_debug(
+        tt::LogOp,
+        "Transpose: generated shard spec ({}, {}) over {} populated cores",
+        shard_shape[0],
+        shard_shape[1],
+        used_cores.num_cores());
+    return ShardSpec(used_cores, shard_shape, orientation);
 }
 
 }  // namespace ttnn::operations::data_movement::transpose
