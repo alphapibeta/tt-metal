@@ -8,6 +8,7 @@
 #include "ttnn/device_operation.hpp"
 #include <tt-metalium/core_coord.hpp>
 #include <tt-metalium/program_descriptors.hpp>
+#include <tt-metalium/experimental/program_descriptor_patching.hpp>
 #include <cstdint>
 #include <tt-metalium/workload_descriptor.hpp>
 #include <optional>
@@ -21,11 +22,10 @@ namespace ttnn::experimental::prim {
 // The per-direction GlobalSemaphore L1 addresses are excluded from the program-cache key
 // (RingAttentionAllGatherAsyncParams::attribute_values omits `semaphore`), so two calls that differ
 // only in which GlobalSemaphores they pass still cache-hit. That makes the addresses dynamic: the
-// factory bakes them for the cache-miss build, and
-// RingAttentionAllGatherAsyncDeviceOperation::override_runtime_arguments() re-applies them on every
-// dispatch — otherwise a cache hit with a different / reallocated semaphore set would silently reuse
-// the address frozen at the first miss (the frozen-runtime-arg bug). A GlobalSemaphore address is not
-// a tensor Buffer* (it exposes no public Buffer accessor), so it cannot be a BufferBinding.
+// factory bakes them for the cache-miss build and override_runtime_arguments() re-applies them on
+// every dispatch — otherwise a cache hit with a different / reallocated semaphore set would silently
+// reuse the address frozen at the first miss (the frozen-runtime-arg bug). A GlobalSemaphore address
+// is not a tensor Buffer* (it exposes no public Buffer accessor), so it cannot be a BufferBinding.
 //
 // The kernel indices and per-core arg slots below are the shared reference for BOTH the factory's
 // cache-miss bake (build_ring_attention_all_gather_program_descriptor via the worker helper) and the
@@ -63,6 +63,15 @@ struct RingAttentionAllGatherAsyncMultiCoreWithWorkersProgramFactory {
         const tensor_args_t& tensor_args,
         tensor_return_value_t& tensor_return_value,
         const ttnn::MeshCoordinateRangeSet& tensor_coords);
+
+    // Re-applies the hash-excluded out_ready GlobalSemaphore addresses on every cache hit; the adapter
+    // routes the WorkloadDescriptor re-apply here via factory_has_override_runtime_arguments().
+    static void override_runtime_arguments(
+        tt::tt_metal::Program& program,
+        const operation_attributes_t& operation_attributes,
+        const tensor_args_t& tensor_args,
+        tensor_return_value_t& tensor_return_value,
+        const std::optional<ttnn::MeshCoordinate>& mesh_dispatch_coordinate = std::nullopt);
 };
 }  // namespace ttnn::experimental::prim
 
