@@ -373,6 +373,7 @@ SoftmaxDeviceOperation::SoftmaxShardedProgramFactoryAttentionOptimized::create_d
 
                 // reader args
                 std::vector<std::variant<uint32_t, Buffer*>> reader_args;
+                reader_args.reserve(4);
                 reader_args.push_back(scale_u);
                 reader_args.push_back(mask_buffer);
                 reader_args.push_back(mask_start_tile_id);
@@ -414,6 +415,7 @@ SoftmaxDeviceOperation::SoftmaxShardedProgramFactoryAttentionOptimized::create_d
 
                 // reader args
                 std::vector<std::variant<uint32_t, Buffer*>> reader_args;
+                reader_args.reserve(4);
                 reader_args.push_back(scale_u);
                 reader_args.push_back(mask_buffer);
                 reader_args.push_back(mask_start_tile_id);

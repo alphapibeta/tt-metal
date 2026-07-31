@@ -482,6 +482,8 @@ tt::tt_metal::ProgramDescriptor GroupNormDeviceOperation::GroupNormNoMcastProgra
 
     std::vector<std::vector<CoreCoord>> mcast_groups;
     std::vector<std::vector<CoreCoord>> mcast_virtual_groups;
+    mcast_groups.reserve(core_coords.size());
+    mcast_virtual_groups.reserve(core_coords.size());
     int group_index = -1;
     for (size_t i = 0; i < core_coords.size(); ++i) {
         if (mcast_sender_core_ranges_all.contains(CoreRange(core_coords[i]))) {
@@ -1382,6 +1384,7 @@ tt::tt_metal::ProgramDescriptor GroupNormDeviceOperation::GroupNormNoMcastProgra
             }
 
             std::vector<uint32_t> mcast_noc_xy;
+            mcast_noc_xy.reserve(group.size() * 2);
             for (const auto& gcore : group) {
                 CoreCoord coord = device->worker_core_from_logical_core(gcore);
                 mcast_noc_xy.push_back(coord.x);
