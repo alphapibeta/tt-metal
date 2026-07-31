@@ -650,10 +650,7 @@ public:
                             collect_tensor_buffers(tensor_args, tensor_return_value, sv.workload_descriptor);
                         tt::tt_metal::apply_resolved_bindings(program, sv.resolved_bindings, collected.buffers);
                     }
-                    // The WorkloadDescriptor variant never rebuilds, so a value a custom hash excluded stays
-                    // frozen at first miss. override_runtime_arguments() re-applies it without re-running
-                    // create_workload_descriptor (no GlobalSemaphore/MeshBuffer realloc); prefer the factory
-                    // hook, then the DeviceOperation, else the legacy get_dynamic re-apply.
+                    // Cache hit never rebuilds; re-apply hash-excluded args via the override hook.
                     if constexpr (factory_has_override_runtime_arguments()) {
                         DescriptorFactory::override_runtime_arguments(
                             program,
