@@ -876,6 +876,7 @@ void py_module_types(nb::module_& mod) {
                     auto name = nb::cast<std::string>(tup[0]);
                     auto dict = nb::cast<nb::dict>(tup[1]);
                     std::vector<std::pair<CoreCoord, uint32_t>> core_values;
+                    core_values.reserve(dict.size());
                     for (const auto& [k, v] : dict) {
                         core_values.emplace_back(nb::cast<CoreCoord>(k), nb::cast<uint32_t>(v));
                     }
@@ -905,6 +906,7 @@ void py_module_types(nb::module_& mod) {
                     auto name = nb::cast<std::string>(tup[0]);
                     auto values_list = nb::cast<nb::list>(tup[1]);
                     std::vector<uint32_t> values;
+                    values.reserve(values_list.size());
                     for (auto v : values_list) {
                         values.push_back(nb::cast<uint32_t>(v));
                     }
@@ -938,9 +940,11 @@ void py_module_types(nb::module_& mod) {
                     auto name = nb::cast<std::string>(tup[0]);
                     auto dict = nb::cast<nb::dict>(tup[1]);
                     std::vector<std::pair<CoreCoord, std::vector<uint32_t>>> core_values;
+                    core_values.reserve(dict.size());
                     for (const auto& [k, v] : dict) {
                         auto values_list = nb::cast<nb::list>(v);
                         std::vector<uint32_t> values;
+                        values.reserve(values_list.size());
                         for (auto val : values_list) {
                             values.push_back(nb::cast<uint32_t>(val));
                         }
