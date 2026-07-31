@@ -70,7 +70,7 @@ void run_kernel(RUNTIME_PARAMETERS params)
 
         if constexpr (is_fp32_dest_acc_en && !unpack_to_dest)
         {
-            // If Dst fmt is 32b and operation is Mov2D, we need both SrcA/B fmts to be configured since Mov2D will be implemented via ELWADD
+            // If Dest is in 32bit mode and operation is Mov2D, we need both SrcA/B fmts to be configured since Mov2D will be implemented via ELWADD
             _llk_unpack_configure_binary_<p_unpacr::UNP_A, p_unpacr::UNP_B>(td_val_A, td_val_B);
         }
         else
