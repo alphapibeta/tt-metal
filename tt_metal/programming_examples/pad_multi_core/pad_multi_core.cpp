@@ -99,6 +99,7 @@ int main() {
 
     // specify compile time args for TTNN reader/writer
     std::vector<uint32_t> reader_compile_time_args;
+    reader_compile_time_args.reserve(20);
     // N, H, C (treat rows as N, single H=1, columns (packed) as C)
     reader_compile_time_args.push_back(src_M);                // N
     reader_compile_time_args.push_back(1);                    // H
@@ -135,7 +136,7 @@ int main() {
         tt_metal::DataMovementConfig{
             .processor = DataMovementProcessor::RISCV_0,
             .noc = NOC::RISCV_0_default,
-            .compile_args = reader_compile_time_args});
+            .compile_args = std::move(reader_compile_time_args)});
     KernelHandle writer_id = CreateKernel(
         program,
         "tt_metal/programming_examples/pad_multi_core/kernels/pad_writer_dims_rm_interleaved.cpp",
@@ -143,7 +144,7 @@ int main() {
         tt_metal::DataMovementConfig{
             .processor = DataMovementProcessor::RISCV_1,
             .noc = NOC::RISCV_1_default,
-            .compile_args = writer_compile_time_args});
+            .compile_args = std::move(writer_compile_time_args)});
 
     // set kernel runtime arguments
     uint32_t start_src_idx = 0;
