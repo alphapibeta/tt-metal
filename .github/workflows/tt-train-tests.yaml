@@ -177,15 +177,54 @@ jobs:
         if: ${{ inputs.wheel-artifact-name }}
         timeout-minutes: 10
         run: |
+          set -euo pipefail
+          echo "LD_LIBRARY_PATH=" >> $GITHUB_ENV
+
           SITE_PACKAGES=$(uv pip show ttnn | sed -n 's/^Location: //p')
           if [[ -z "$SITE_PACKAGES" ]]; then
             echo "ERROR: Could not determine site-packages from ttnn. Is the wheel installed?"
             exit 1
           fi
+          TTNN_LIBS="$SITE_PACKAGES/ttnn.libs"
           TTML_SRC_DIR="$TT_METAL_HOME/tt-train/sources/ttml"
           TTML_BUILD_DIR="$TT_METAL_HOME/build/tt-train/sources/ttml"
+
+          # The pure-Python ttml package is imported straight from source (no native libs).
           echo "$TTML_SRC_DIR" > "$SITE_PACKAGES/ttml.pth"
-          echo "$TTML_BUILD_DIR" > "$SITE_PACKAGES/_ttml.pth"
+
+          # Vendor the native _ttml extension INTO the wheel's auditwheel lib dir and repair it
+          # the same way auditwheel repaired the wheel's own libs, so it binds the exact same
+          # libtt_metal / _ttnncpp / libtt-umd / libtt_stl / libtracy that `import ttnn` loads.
+          #
+          # Why this is required: the wheel is self-contained — auditwheel copied those libs into
+          # ttnn.libs under *hashed* sonames (e.g. libtt_metal-<hash>.so) and repointed ttnn at
+          # them. The build-tree _ttml.so still NEEDs the *bare* sonames (libtt_metal.so, ...) and
+          # carries an absolute RUNPATH into build/lib, so it loads a SECOND copy of libtt_metal.
+          # Two tt_cluster instances in one process each open the device and self-deadlock on the
+          # UMD CHIP_IN_USE lock (the tt-train python tests open/close the device repeatedly).
+          command -v patchelf >/dev/null 2>&1 || uv pip install patchelf
+          TTML_SO=$(ls "$TTML_BUILD_DIR"/_ttml*.so 2>/dev/null | head -1 || true)
+          if [[ -z "$TTML_SO" ]]; then
+            echo "ERROR: could not find built _ttml*.so under $TTML_BUILD_DIR"
+            exit 1
+          fi
+          TTML_SO_NAME=$(basename "$TTML_SO")
+          cp "$TTML_SO" "$TTNN_LIBS/"
+
+          # Look next to itself (ttnn.libs) and rewrite each first-party NEEDED from the bare
+          # soname to the hashed file ttnn already loaded, so the loader dedups to one instance.
+          patchelf --set-rpath '$ORIGIN' "$TTNN_LIBS/$TTML_SO_NAME"
+          for need in $(patchelf --print-needed "$TTNN_LIBS/$TTML_SO_NAME"); do
+            base=${need%%.so*}
+            match=$(ls "$TTNN_LIBS/${base}"-*.so* 2>/dev/null | head -1 || true)
+            if [[ -n "$match" ]]; then
+              patchelf --replace-needed "$need" "$(basename "$match")" "$TTNN_LIBS/$TTML_SO_NAME"
+              echo "rebound $need -> $(basename "$match")"
+            fi
+          done
+
+          # Import _ttml from ttnn.libs (now self-contained); build/lib is no longer referenced.
+          echo "$TTNN_LIBS" > "$SITE_PACKAGES/_ttml.pth"
 
       - name: Install Python dependencies for metrics
         if: ${{ inputs.test-category == 'perf' }}
