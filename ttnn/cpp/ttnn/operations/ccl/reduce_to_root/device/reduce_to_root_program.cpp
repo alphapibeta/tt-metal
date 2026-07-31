@@ -184,6 +184,7 @@ ttnn::device_operation::CachedProgram<ReduceToRootOp::ReduceToRoot::shared_varia
 
     // Get all cores from the shard grid
     std::vector<CoreCoord> all_coord_cores;
+    all_coord_cores.reserve(shard_grid.num_cores());
     for (const auto& core_range : shard_grid.ranges()) {
         auto cores = corerange_to_cores(core_range, std::nullopt);
         all_coord_cores.insert(all_coord_cores.end(), cores.begin(), cores.end());
