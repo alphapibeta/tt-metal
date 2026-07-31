@@ -21,6 +21,7 @@
 #include <tt-metalium/host_buffer.hpp>
 #include <tt-metalium/shape.hpp>
 #include <tt-metalium/tile.hpp>
+#include <tt-metalium/experimental/tensor_layout_apis_with_custom_alignment.hpp>
 
 namespace tt::tt_metal {
 namespace {
@@ -105,14 +106,18 @@ TEST(HostTensorToDtype, NonBfpPreservesMetadata) {
     auto alignment = tt::tt_metal::Alignment({32, 32});
     auto tile = Tile({16, 16});
 
-    auto source_spec =
-        TensorSpec(shape, TensorLayout(DataType::FLOAT32, PageConfig(Layout::TILE, tile), memory_config, alignment));
+    auto source_spec = TensorSpec(
+        shape,
+        tensor_layout_with_custom_alignment(
+            DataType::FLOAT32, PageConfig(Layout::TILE, tile), memory_config, alignment));
     auto source = HostTensor::from_vector<float>(data, source_spec);
 
     auto result = to_dtype(source, DataType::BFLOAT16);
 
-    auto expected_spec =
-        TensorSpec(shape, TensorLayout(DataType::BFLOAT16, PageConfig(Layout::TILE, tile), memory_config, alignment));
+    auto expected_spec = TensorSpec(
+        shape,
+        tensor_layout_with_custom_alignment(
+            DataType::BFLOAT16, PageConfig(Layout::TILE, tile), memory_config, alignment));
 
     EXPECT_TRUE(CMAKE_UNIQUE_NAMESPACE::exact_spec_match(result.tensor_spec(), expected_spec));
     EXPECT_EQ(result.dtype(), DataType::BFLOAT16);
@@ -127,14 +132,18 @@ TEST(HostTensorToDtype, TileBfp8ToFloat32ValueCheck) {
     const auto tile = Tile({16, 16});
     const auto& [packed, unpacked_golden] = CMAKE_UNIQUE_NAMESPACE::generate_bfp8_dataset(shape, tile);
 
-    auto source_spec =
-        TensorSpec(shape, TensorLayout(DataType::BFLOAT8_B, PageConfig(Layout::TILE, tile), memory_config, alignment));
+    auto source_spec = TensorSpec(
+        shape,
+        tensor_layout_with_custom_alignment(
+            DataType::BFLOAT8_B, PageConfig(Layout::TILE, tile), memory_config, alignment));
     auto source = CMAKE_UNIQUE_NAMESPACE::make_host_tensor(packed, source_spec);
 
     auto result = to_dtype(source, DataType::FLOAT32);
 
-    auto expected_spec =
-        TensorSpec(shape, TensorLayout(DataType::FLOAT32, PageConfig(Layout::TILE, tile), memory_config, alignment));
+    auto expected_spec = TensorSpec(
+        shape,
+        tensor_layout_with_custom_alignment(
+            DataType::FLOAT32, PageConfig(Layout::TILE, tile), memory_config, alignment));
     EXPECT_TRUE(CMAKE_UNIQUE_NAMESPACE::exact_spec_match(result.tensor_spec(), expected_spec));
     EXPECT_EQ(result.dtype(), DataType::FLOAT32);
     EXPECT_EQ(result.layout(), Layout::TILE);
@@ -150,14 +159,18 @@ TEST(HostTensorToDtype, Float32ToTileBfp8ValueCheck) {
     const auto tile = Tile({16, 16});
     const auto& [floats, packed_golden] = CMAKE_UNIQUE_NAMESPACE::generate_float_to_bfp8_dataset(shape, tile);
 
-    auto source_spec =
-        TensorSpec(shape, TensorLayout(DataType::FLOAT32, PageConfig(Layout::TILE, tile), memory_config, alignment));
+    auto source_spec = TensorSpec(
+        shape,
+        tensor_layout_with_custom_alignment(
+            DataType::FLOAT32, PageConfig(Layout::TILE, tile), memory_config, alignment));
     auto source = CMAKE_UNIQUE_NAMESPACE::make_host_tensor(floats, source_spec);
 
     auto result = to_dtype(source, DataType::BFLOAT8_B);
 
-    auto expected_spec =
-        TensorSpec(shape, TensorLayout(DataType::BFLOAT8_B, PageConfig(Layout::TILE, tile), memory_config, alignment));
+    auto expected_spec = TensorSpec(
+        shape,
+        tensor_layout_with_custom_alignment(
+            DataType::BFLOAT8_B, PageConfig(Layout::TILE, tile), memory_config, alignment));
     EXPECT_TRUE(CMAKE_UNIQUE_NAMESPACE::exact_spec_match(result.tensor_spec(), expected_spec));
     EXPECT_EQ(result.dtype(), DataType::BFLOAT8_B);
     EXPECT_EQ(result.layout(), Layout::TILE);
@@ -173,14 +186,18 @@ TEST(HostTensorToDtype, TileBfp4ToFloat32ValueCheck) {
     const auto tile = Tile({16, 16});
     const auto& [packed, unpacked_golden] = CMAKE_UNIQUE_NAMESPACE::generate_bfp4_dataset(shape, tile);
 
-    auto source_spec =
-        TensorSpec(shape, TensorLayout(DataType::BFLOAT4_B, PageConfig(Layout::TILE, tile), memory_config, alignment));
+    auto source_spec = TensorSpec(
+        shape,
+        tensor_layout_with_custom_alignment(
+            DataType::BFLOAT4_B, PageConfig(Layout::TILE, tile), memory_config, alignment));
     auto source = CMAKE_UNIQUE_NAMESPACE::make_host_tensor(packed, source_spec);
 
     auto result = to_dtype(source, DataType::FLOAT32);
 
-    auto expected_spec =
-        TensorSpec(shape, TensorLayout(DataType::FLOAT32, PageConfig(Layout::TILE, tile), memory_config, alignment));
+    auto expected_spec = TensorSpec(
+        shape,
+        tensor_layout_with_custom_alignment(
+            DataType::FLOAT32, PageConfig(Layout::TILE, tile), memory_config, alignment));
     EXPECT_TRUE(CMAKE_UNIQUE_NAMESPACE::exact_spec_match(result.tensor_spec(), expected_spec));
     EXPECT_EQ(result.dtype(), DataType::FLOAT32);
     EXPECT_EQ(result.layout(), Layout::TILE);
@@ -196,14 +213,18 @@ TEST(HostTensorToDtype, Float32ToTileBfp4ValueCheck) {
     const auto tile = Tile({16, 16});
     const auto& [floats, packed_golden] = CMAKE_UNIQUE_NAMESPACE::generate_float_to_bfp4_dataset(shape, tile);
 
-    auto source_spec =
-        TensorSpec(shape, TensorLayout(DataType::FLOAT32, PageConfig(Layout::TILE, tile), memory_config, alignment));
+    auto source_spec = TensorSpec(
+        shape,
+        tensor_layout_with_custom_alignment(
+            DataType::FLOAT32, PageConfig(Layout::TILE, tile), memory_config, alignment));
     auto source = CMAKE_UNIQUE_NAMESPACE::make_host_tensor(floats, source_spec);
 
     auto result = to_dtype(source, DataType::BFLOAT4_B);
 
-    auto expected_spec =
-        TensorSpec(shape, TensorLayout(DataType::BFLOAT4_B, PageConfig(Layout::TILE, tile), memory_config, alignment));
+    auto expected_spec = TensorSpec(
+        shape,
+        tensor_layout_with_custom_alignment(
+            DataType::BFLOAT4_B, PageConfig(Layout::TILE, tile), memory_config, alignment));
     EXPECT_TRUE(CMAKE_UNIQUE_NAMESPACE::exact_spec_match(result.tensor_spec(), expected_spec));
     EXPECT_EQ(result.dtype(), DataType::BFLOAT4_B);
     EXPECT_EQ(result.layout(), Layout::TILE);
@@ -281,14 +302,18 @@ TEST(HostTensorToDtype, PerCoreAllocationPreserved) {
     auto alignment = tt::tt_metal::Alignment({32, 64});
     auto tile = Tile({32, 32});
 
-    auto source_spec =
-        TensorSpec(shape, TensorLayout(DataType::FLOAT32, PageConfig(Layout::TILE, tile), memory_config, alignment));
+    auto source_spec = TensorSpec(
+        shape,
+        tensor_layout_with_custom_alignment(
+            DataType::FLOAT32, PageConfig(Layout::TILE, tile), memory_config, alignment));
     auto source = HostTensor::from_vector<float>(data, source_spec);
 
     auto result = to_dtype(source, DataType::BFLOAT16);
 
-    auto expected_spec =
-        TensorSpec(shape, TensorLayout(DataType::BFLOAT16, PageConfig(Layout::TILE, tile), memory_config, alignment));
+    auto expected_spec = TensorSpec(
+        shape,
+        tensor_layout_with_custom_alignment(
+            DataType::BFLOAT16, PageConfig(Layout::TILE, tile), memory_config, alignment));
 
     EXPECT_TRUE(CMAKE_UNIQUE_NAMESPACE::exact_spec_match(result.tensor_spec(), expected_spec));
     EXPECT_TRUE(experimental::per_core_allocation::is_per_core_allocation(result.tensor_spec().memory_config()));
@@ -346,8 +371,10 @@ TEST(HostTensorToDtype, RowMajorToBfpPhysicalMismatchThrows) {
     // Alignment that is NOT a multiple of the default tile width
     auto alignment = tt::tt_metal::Alignment({32, 24});
 
-    auto source_spec =
-        TensorSpec(shape, TensorLayout(DataType::FLOAT32, PageConfig(Layout::ROW_MAJOR), memory_config, alignment));
+    auto source_spec = TensorSpec(
+        shape,
+        tensor_layout_with_custom_alignment(
+            DataType::FLOAT32, PageConfig(Layout::ROW_MAJOR), memory_config, alignment));
     auto source = HostTensor::from_vector<float>(data, source_spec);
 
     // This should throw because BFLOAT8_B forces TILE layout, which forces alignment to be

@@ -5,6 +5,7 @@
 #include "tensor/flatbuffer/tensor_spec_flatbuffer.hpp"
 
 #include <tt-metalium/experimental/per_core_allocation/memory_config.hpp>
+#include <tt-metalium/experimental/tensor_layout_apis_with_custom_alignment.hpp>
 
 namespace ttnn {
 
@@ -12,7 +13,8 @@ CoreRangeSet from_flatbuffer(const flatbuffer::CoreRangeSet* core_range_set) {
     std::vector<CoreRange> ranges;
     for (const auto* range : *core_range_set->ranges()) {
         ranges.emplace_back(
-            tt::tt_metal::CoreCoord{range->start()->x(), range->start()->y()}, tt::tt_metal::CoreCoord{range->end()->x(), range->end()->y()});
+            tt::tt_metal::CoreCoord{range->start()->x(), range->start()->y()},
+            tt::tt_metal::CoreCoord{range->end()->x(), range->end()->y()});
     }
     return CoreRangeSet{ranges};
 }
@@ -201,7 +203,7 @@ tt::tt_metal::TensorLayout from_flatbuffer(const flatbuffer::TensorLayout* layou
         }
     }();
 
-    return tt::tt_metal::TensorLayout::restore_from_serialized(
+    return tt::tt_metal::restore_tensor_layout_from_serialized(
         from_flatbuffer(layout->data_type()),
         page_config,
         ttnn::from_flatbuffer(layout->memory_config()),
